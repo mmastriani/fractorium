@@ -41,6 +41,34 @@ static string ConstantDefinesString(bool doublePrecision)
 		   "#define EPS (DBL_EPSILON)\n"
 		   "#define TLOW (DBL_MIN)\n"
 		   "#define TMAX (DBL_MAX)\n"
+#ifdef __APPLE__
+		   "#define fma(a, b, c) mad((a), (b), (c))\n"
+		   "#define sin(x) ((real_t)native_sin((float)(x)))\n"
+		   "#define cos(x) ((real_t)native_cos((float)(x)))\n"
+		   "#define tan(x) ((real_t)native_tan((float)(x)))\n"
+		   "#define sqrt(x) ((real_t)native_sqrt((float)(x)))\n"
+		   "#define exp(x) ((real_t)native_exp((float)(x)))\n"
+		   "#define log(x) ((real_t)native_log((float)(x)))\n"
+		   "#define log2(x) ((real_t)native_log2((float)(x)))\n"
+		   "#define log10(x) ((real_t)native_log10((float)(x)))\n"
+		   "#define rsqrt(x) ((real_t)native_rsqrt((float)(x)))\n"
+		   "inline real_t fast_atan2(real_t y, real_t x) { return (real_t)atan2((float)y, (float)x); }\n"
+		   "inline real_t fast_atan(real_t x) { return (real_t)atan((float)x); }\n"
+		   "inline real_t fast_asin(real_t x) { return (real_t)asin((float)x); }\n"
+		   "inline real_t fast_acos(real_t x) { return (real_t)acos((float)x); }\n"
+		   "inline real_t fast_sinh(real_t x) { return (real_t)sinh((float)x); }\n"
+		   "inline real_t fast_cosh(real_t x) { return (real_t)cosh((float)x); }\n"
+		   "inline real_t fast_tanh(real_t x) { return (real_t)tanh((float)x); }\n"
+		   "inline real_t fast_pow(real_t x, real_t y) { return (real_t)pow((float)x, (float)y); }\n"
+		   "#define atan2(y, x) fast_atan2((y), (x))\n"
+		   "#define atan(x) fast_atan(x)\n"
+		   "#define asin(x) fast_asin(x)\n"
+		   "#define acos(x) fast_acos(x)\n"
+		   "#define sinh(x) fast_sinh(x)\n"
+		   "#define cosh(x) fast_cosh(x)\n"
+		   "#define tanh(x) fast_tanh(x)\n"
+		   "#define pow(x, y) fast_pow((x), (y))\n"
+#endif
 		   ;
 	}
 	else
@@ -56,6 +84,18 @@ static string ConstantDefinesString(bool doublePrecision)
 		   "#define EPS (FLT_EPSILON)\n"
 		   "#define TLOW (FLT_MIN)\n"
 		   "#define TMAX (FLT_MAX)\n"
+#ifdef __APPLE__
+		   "#define fma(a, b, c) mad((a), (b), (c))\n"
+		   "#define sin(x) native_sin(x)\n"
+		   "#define cos(x) native_cos(x)\n"
+		   "#define tan(x) native_tan(x)\n"
+		   "#define sqrt(x) native_sqrt(x)\n"
+		   "#define exp(x) native_exp(x)\n"
+		   "#define log(x) native_log(x)\n"
+		   "#define log2(x) native_log2(x)\n"
+		   "#define log10(x) native_log10(x)\n"
+		   "#define rsqrt(x) native_rsqrt(x)\n"
+#endif
 		   ;
 	}
 

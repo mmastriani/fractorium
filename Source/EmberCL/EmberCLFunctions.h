@@ -191,7 +191,11 @@ static constexpr char RandFunctionString[] =
 	"\n"
 	"inline real_t MwcNextFRange(uint2* s, real_t lower, real_t upper)\n"
 	"{\n"
+#ifdef __APPLE__
+	"	real_t f = (real_t)MwcNext(s) * (real_t)(1.0 / 4294967295.0);\n"
+#else
 	"	real_t f = (real_t)MwcNext(s) / (real_t)UINT_MAX;\n"
+#endif
 #ifdef USEFMA
 	"	return fma(f, upper - lower, lower);\n"
 #else
@@ -201,7 +205,11 @@ static constexpr char RandFunctionString[] =
 	"\n"
 	"inline real_t MwcNextNeg1Pos1(uint2* s)\n"
 	"{\n"
+#ifdef __APPLE__
+	"	real_t f = (real_t)MwcNext(s) * (real_t)(1.0 / 4294967295.0);\n"
+#else
 	"	real_t f = (real_t)MwcNext(s) / (real_t)UINT_MAX;\n"
+#endif
 #ifdef USEFMA
 	"	return fma(f, (real_t)2.0, (real_t)-1.0);\n"
 #else
@@ -211,7 +219,11 @@ static constexpr char RandFunctionString[] =
 	"\n"
 	"inline real_t MwcNext0505(uint2* s)\n"
 	"{\n"
+#ifdef __APPLE__
+	"	real_t f = (real_t)MwcNext(s) * (real_t)(1.0 / 4294967295.0);\n"
+#else
 	"	real_t f = (real_t)MwcNext(s) / (real_t)UINT_MAX;\n"
+#endif
 	"	return -0.5 + f;\n"
 	"}\n"
 	"\n";

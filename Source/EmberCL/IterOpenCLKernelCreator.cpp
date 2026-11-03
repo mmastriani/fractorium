@@ -139,7 +139,11 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 		bool hasPreReg = (xform->PreVariationCount() + xform->VariationCount()) > 0;
 		v = varIndex = varCount = 0;
 		xformFuncs <<
+#ifdef __APPLE__
+				   "inline void Xform" << i << "(__constant XformCL* xform, __constant real_t* parVars, __global real_t* globalShared, Point* inPoint, Point* outPoint, uint2* mwc, VariationState* varState)\n" <<
+#else
 				   "void Xform" << i << "(__constant XformCL* xform, __constant real_t* parVars, __global real_t* globalShared, Point* inPoint, Point* outPoint, uint2* mwc, VariationState* varState)\n" <<
+#endif
 				   "{\n"
 				   "	real_t transX, transY, transZ;\n"
 				   "	real4 vIn, vOut = 0.0;\n";
@@ -230,8 +234,14 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 
 				if (xform->NeedPrecalcAngles())
 				{
+#ifdef __APPLE__
+					xformFuncs << "\treal_t precalcInvSqrt = (real_t)1.0 / Zeps(precalcSqrtSumSquares);\n";
+					xformFuncs << "\tprecalcCosa = transX * precalcInvSqrt;\n";
+					xformFuncs << "\tprecalcSina = transY * precalcInvSqrt;\n";
+#else
 					xformFuncs << "\tprecalcCosa = transX / Zeps(precalcSqrtSumSquares);\n";
 					xformFuncs << "\tprecalcSina = transY / Zeps(precalcSqrtSumSquares);\n";
+#endif
 				}
 
 				if (xform->NeedPrecalcAtanXY())
@@ -465,7 +475,7 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 #ifndef KNL_USE_GLOBAL_CONSEC
 	   "		consec = 0;\n"
 #else
-	   "		consec[blockStartThreadIndex] = 0;\n"
+	   "		bool resetConsec = true;\n"
 #endif
 	   ;
 
@@ -495,6 +505,9 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 	}
 
 	os <<
+#ifdef KNL_USE_GLOBAL_CONSEC
+	   "		#pragma unroll 1\n"
+#endif
 	   "		do\n"
 	   "		{\n";
 
@@ -541,16 +554,19 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 	   "				firstPoint.m_ColorX = secondPoint.m_ColorX;\n"
 #ifndef KNL_USE_GLOBAL_CONSEC
 	   "				consec++;\n"
-#else
-	   "				consec[blockStartThreadIndex]++;\n"
-#endif
 	   //"				badvals++;\n"
 	   "			}\n"
 	   "		}\n"
-#ifndef KNL_USE_GLOBAL_CONSEC
 	   "		while (!ok && consec < 5);\n"
 #else
-	   "		while (!ok && consec[blockStartThreadIndex] < 5);\n"
+	   "				uchar c = resetConsec ? (uchar)1 : (uchar)(consec[blockStartThreadIndex] + 1);\n"
+	   "				resetConsec = false;\n"
+	   "				consec[blockStartThreadIndex] = c;\n"
+	   "				if (c >= 5)\n"
+	   "					break;\n"
+	   "			}\n"
+	   "		}\n"
+	   "		while (!ok);\n"
 #endif
 	   "\n"
 	   "		if (!ok)\n"
@@ -569,7 +585,15 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 		   "		uint sw = (swr * THREADS_PER_WARP + THREAD_ID_X) & threadsMinus1;\n"
 		   "\n"
 		   //Write to another thread's location.
+#ifdef __APPLE__
+		   "		swap[sw].m_X = secondPoint.m_X;\n"
+		   "		swap[sw].m_Y = secondPoint.m_Y;\n"
+		   "		swap[sw].m_Z = secondPoint.m_Z;\n"
+		   "		swap[sw].m_ColorX = secondPoint.m_ColorX;\n"
+		   "		swap[sw].m_LastXfUsed = secondPoint.m_LastXfUsed;\n";
+#else
 		   "		swap[sw] = secondPoint;\n";
+#endif
 		os <<
 		   "\n"
 		   //Populate randomized xform index buffer with new random values.
@@ -578,7 +602,15 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 		   "\n"
 		   "		barrier(CLK_LOCAL_MEM_FENCE);\n"
 		   //Another thread will have written to this thread's location, so read the new value and use it for accumulation below.
+#ifdef __APPLE__
+		   "		firstPoint.m_X = swap[threadIndex].m_X;\n"
+		   "		firstPoint.m_Y = swap[threadIndex].m_Y;\n"
+		   "		firstPoint.m_Z = swap[threadIndex].m_Z;\n"
+		   "		firstPoint.m_ColorX = swap[threadIndex].m_ColorX;\n"
+		   "		firstPoint.m_LastXfUsed = swap[threadIndex].m_LastXfUsed;\n";
+#else
 		   "		firstPoint = swap[threadIndex];\n";
+#endif
 	}
 	else
 	{
@@ -760,6 +792,14 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 		   "			}\n"//CarToRasInBounds.
 		   "		}\n"//Opacity != 0.
 		   "\n";
+#ifdef __APPLE__
+		if (hasVarState && ember.XformCount() > 1)
+		{
+			os <<
+			   "		barrier(CLK_GLOBAL_MEM_FENCE);\n"
+			   "		varState = varStates[blockStartThreadIndex];\n";
+		}
+#else
 		os <<
 		   "		barrier(CLK_GLOBAL_MEM_FENCE);\n";//Barrier every time, whether or not the point was in bounds, else artifacts will occur when doing strips.
 
@@ -769,6 +809,7 @@ string IterOpenCLKernelCreator<T>::CreateIterKernelString(const Ember<T>& ember,
 			   "		varState = varStates[blockStartThreadIndex];\n"
 			   ;
 		}
+#endif
 	}
 
 	os <<
